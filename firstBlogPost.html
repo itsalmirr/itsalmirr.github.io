@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Guide: Modern Session-Based Authentication</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals (Slate, Zinc, Stone) with a Teal Accent -->
+    <!-- Application Structure Plan: A thematic, single-page dashboard with a sticky top navigation. This structure is chosen over a linear document to allow users (developers/architects) to non-linearly explore the complex topics. Key sections are: 1) An interactive architecture diagram for a high-level overview, 2) A 'Security Fortress' section to deep-dive into cookie and CSRF protection with interactive toggles, 3) An 'Implementation' section with tabbed code views for Go and Next.js, and 4) An 'Operations' section with an interactive checklist. This task-oriented design enhances usability by letting users jump directly to the information most relevant to them, promoting better comprehension of the interconnected concepts. -->
+    <!-- Visualization & Content Choices: 1) Architecture Diagram (HTML/CSS): To visualize the system flow (Goal: Organize/Inform). Interaction: Clickable components reveal detailed responsibilities, making it more engaging than a static table. 2) Cookie Configurator (Interactive HTML Table): To compare production vs. dev settings (Goal: Compare/Inform). Interaction: A toggle switch dynamically changes table content and shows rationale, making security choices explicit. 3) CSRF Flow (HTML/CSS Diagram): To explain the Double Submit pattern (Goal: Explain a process). This visual breakdown is easier to follow than prose. 4) Deployment Checklist (Interactive HTML): To summarize key actions (Goal: Inform/Organize). Interaction: Checkable items provide a sense of completion and reinforce learning. No traditional charts are needed as the report is conceptual, not statistical. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            /* slate-50 */
+            color: #27272a;
+            /* zinc-800 */
+        }
+
+        .section-card {
+            background-color: white;
+            border-radius: 0.75rem;
+            border: 1px solid #e2e8f0;
+            /* slate-200 */
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: all 0.3s ease-in-out;
+        }
+
+        .nav-link {
+            transition: color 0.2s;
+        }
+
+        .nav-link:hover {
+            color: #0d9488;
+            /* teal-600 */
+        }
+
+        .active-nav {
+            color: #0d9488;
+            /* teal-600 */
+            font-weight: 600;
+        }
+
+        .flow-arrow {
+            position: relative;
+            width: 100%;
+            height: 2px;
+            background-color: #94a3b8;
+            /* slate-400 */
+        }
+
+        .flow-arrow::after {
+            content: '►';
+            position: absolute;
+            right: -8px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            /* slate-400 */
+            font-size: 1rem;
+        }
+
+        .flow-arrow-vertical {
+            position: relative;
+            height: 100%;
+            width: 2px;
+            background-color: #94a3b8;
+            /* slate-400 */
+        }
+
+        .flow-arrow-vertical::after {
+            content: '▼';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #94a3b8;
+            /* slate-400 */
+            font-size: 1rem;
+        }
+
+        .code-block {
+            background-color: #1e293b;
+            /* slate-800 */
+            color: #e2e8f0;
+            /* slate-200 */
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.875rem;
+            overflow-x: auto;
+        }
+
+        .tab-button.active {
+            border-color: #0d9488;
+            /* teal-600 */
+            color: #0d9488;
+            /* teal-600 */
+            background-color: #f0fdfa;
+            /* teal-50 */
+        }
+
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 40;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            max-width: 90%;
+            width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+    </style>
+</head>
+
+<body class="antialiased">
+
+    <!-- Header & Navigation -->
+    <header id="header" class="bg-white/80 backdrop-blur-sm sticky top-0 z-30 border-b border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex-shrink-0">
+                    <h1 class="text-xl font-bold text-slate-800">Auth Architecture Blueprint</h1>
+                </div>
+                <nav class="hidden md:flex md:space-x-8">
+                    <a href="#architecture" class="nav-link text-slate-600 hover:text-teal-600">Architecture</a>
+                    <a href="#security" class="nav-link text-slate-600 hover:text-teal-600">Security</a>
+                    <a href="#implementation" class="nav-link text-slate-600 hover:text-teal-600">Implementation</a>
+                    <a href="#operations" class="nav-link text-slate-600 hover:text-teal-600">Operations</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+
+        <!-- Introduction -->
+        <section class="text-center mb-16">
+            <h2 class="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">The Modern Stateful Authentication
+                Blueprint</h2>
+            <p class="mt-6 text-lg leading-8 text-slate-600 max-w-3xl mx-auto">An interactive guide to a secure and
+                scalable session-based authentication system using Next.js, Go, and Redis. Click through the components
+                to explore the architecture.</p>
+        </section>
+
+        <!-- Architecture Section -->
+        <section id="architecture" class="mb-24 scroll-mt-20">
+            <div class="section-card p-6 md:p-8">
+                <h3 class="text-2xl font-bold text-slate-900 mb-2">The Architecture Blueprint</h3>
+                <p class="text-slate-600 mb-8">This model uses a Next.js Backend-for-Frontend (BFF) to securely mediate
+                    all communication between the user's browser and the internal Go API. All session state is managed
+                    in a centralized Redis cluster. Click on each component below to see its specific roles and
+                    responsibilities in the authentication flow.</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-7 items-center gap-4 md:gap-8 text-center">
+                    <!-- Browser -->
+                    <div id="arch-browser"
+                        class="arch-component p-4 border-2 border-teal-500 rounded-lg cursor-pointer hover:bg-teal-50 transition">
+                        <span class="text-4xl">💻</span>
+                        <p class="font-semibold mt-2">Browser</p>
+                    </div>
+                    <div class="flex justify-center items-center">
+                        <div class="flow-arrow hidden md:block"></div>
+                        <div class="flow-arrow-vertical md:hidden mx-auto h-8"></div>
+                    </div>
+                    <!-- Next.js BFF -->
+                    <div id="arch-bff"
+                        class="arch-component p-4 border-2 border-blue-500 rounded-lg cursor-pointer hover:bg-blue-50 transition">
+                        <span class="text-4xl">🚀</span>
+                        <p class="font-semibold mt-2">Next.js BFF</p>
+                    </div>
+                    <div class="flex justify-center items-center">
+                        <div class="flow-arrow hidden md:block"></div>
+                        <div class="flow-arrow-vertical md:hidden mx-auto h-8"></div>
+                    </div>
+                    <!-- Go API -->
+                    <div id="arch-go"
+                        class="arch-component p-4 border-2 border-purple-500 rounded-lg cursor-pointer hover:bg-purple-50 transition">
+                        <span class="text-4xl">⚙️</span>
+                        <p class="font-semibold mt-2">Go API</p>
+                    </div>
+                    <div class="flex justify-center items-center">
+                        <div class="flow-arrow hidden md:block"></div>
+                        <div class="flow-arrow-vertical md:hidden mx-auto h-8"></div>
+                    </div>
+                    <!-- Redis -->
+                    <div id="arch-redis"
+                        class="arch-component p-4 border-2 border-red-500 rounded-lg cursor-pointer hover:bg-red-50 transition">
+                        <span class="text-4xl">💾</span>
+                        <p class="font-semibold mt-2">Redis</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Security Section -->
+        <section id="security" class="mb-24 scroll-mt-20">
+            <div class="section-card p-6 md:p-8">
+                <h3 class="text-2xl font-bold text-slate-900 mb-2">The Security Fortress</h3>
+                <p class="text-slate-600 mb-8">A secure system relies on layered defenses. This architecture employs the
+                    strictest cookie policies possible, enabled by the BFF pattern, and complements it with robust CSRF
+                    protection. Interact with the elements below to understand these critical security layers.</p>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Cookie Security -->
+                    <div>
+                        <h4 class="text-xl font-semibold text-slate-800 mb-4">Advanced Cookie Security</h4>
+                        <p class="text-slate-600 mb-4">The session cookie is a bearer token; protecting it is paramount.
+                            The BFF architecture allows us to use the most secure settings. Toggle between environments
+                            to see the recommended configurations.</p>
+                        <div class="flex items-center justify-center space-x-4 mb-6">
+                            <span class="font-medium text-slate-700">Development</span>
+                            <label for="env-toggle" class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="env-toggle" class="sr-only peer" checked>
+                                <div
+                                    class="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-teal-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600">
+                                </div>
+                            </label>
+                            <span class="font-medium text-teal-700">Production</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead class="bg-slate-50">
+                                    <tr>
+                                        <th class="p-3 font-semibold text-slate-700 border-b">Attribute</th>
+                                        <th class="p-3 font-semibold text-slate-700 border-b">Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cookie-table-body">
+                                    <!-- Rows will be populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- CSRF Protection -->
+                    <div>
+                        <h4 class="text-xl font-semibold text-slate-800 mb-4">CSRF Protection: Double Submit Cookie</h4>
+                        <p class="text-slate-600 mb-4">This stateless pattern prevents Cross-Site Request Forgery
+                            without requiring server-side state for CSRF tokens, making it ideal for scalable services.
+                        </p>
+                        <ol class="space-y-4">
+                            <li class="flex items-start">
+                                <span
+                                    class="flex-shrink-0 w-8 h-8 bg-teal-100 text-teal-700 font-bold rounded-full flex items-center justify-center mr-4">1</span>
+                                <div><strong class="text-slate-800">Token Generation:</strong> Frontend requests a CSRF
+                                    token from the Go API.</div>
+                            </li>
+                            <li class="flex items-start">
+                                <span
+                                    class="flex-shrink-0 w-8 h-8 bg-teal-100 text-teal-700 font-bold rounded-full flex items-center justify-center mr-4">2</span>
+                                <div><strong class="text-slate-800">Token Delivery:</strong> Go API sends the token in
+                                    two places: a readable cookie and the JSON response body.</div>
+                            </li>
+                            <li class="flex items-start">
+                                <span
+                                    class="flex-shrink-0 w-8 h-8 bg-teal-100 text-teal-700 font-bold rounded-full flex items-center justify-center mr-4">3</span>
+                                <div><strong class="text-slate-800">Request Submission:</strong> For state-changing
+                                    actions, the frontend sends the token from its state in a custom `X-CSRF-Token`
+                                    header.</div>
+                            </li>
+                            <li class="flex items-start">
+                                <span
+                                    class="flex-shrink-0 w-8 h-8 bg-teal-100 text-teal-700 font-bold rounded-full flex items-center justify-center mr-4">4</span>
+                                <div><strong class="text-slate-800">Server Validation:</strong> The Go API middleware
+                                    verifies that the token in the header matches the token in the cookie. If they
+                                    match, the request is valid.</div>
+                            </li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Implementation Section -->
+        <section id="implementation" class="mb-24 scroll-mt-20">
+            <div class="section-card p-6 md:p-8">
+                <h3 class="text-2xl font-bold text-slate-900 mb-2">Implementation Deep Dive</h3>
+                <p class="text-slate-600 mb-8">This section provides key code examples for both the Go backend and the
+                    Next.js BFF. Use the tabs to switch between the backend and frontend perspectives to see how they
+                    work together to manage the authentication process.</p>
+
+                <!-- Tabs -->
+                <div class="mb-6 border-b border-slate-200">
+                    <nav class="flex space-x-4" aria-label="Tabs">
+                        <button id="tab-go"
+                            class="tab-button active py-3 px-4 font-medium text-sm rounded-t-lg border-b-2">Go
+                            Backend</button>
+                        <button id="tab-next"
+                            class="tab-button py-3 px-4 font-medium text-sm rounded-t-lg border-b-2 border-transparent">Next.js
+                            Frontend</button>
+                    </nav>
+                </div>
+
+                <!-- Tab Content -->
+                <div id="content-go" class="tab-content">
+                    <h4 class="text-xl font-semibold text-slate-800 mb-4">Go API: Session Management & Endpoints</h4>
+                    <p class="text-slate-600 mb-4">The Go backend is the authority. It uses `gin-contrib/sessions` to
+                        create, validate, and destroy sessions in Redis. It exposes a minimal set of endpoints for the
+                        Next.js BFF to consume.</p>
+                    <div class="space-y-4">
+                        <h5 class="font-semibold">Session Store Configuration</h5>
+                        <pre class="code-block"><code>// Example: Initializing the Redis session store in Go
+store, err := redis.NewStore(10, "tcp", redisHost, redisPass, authKey, encryptKey)
+if err != nil { /* handle error */ }
+router.Use(sessions.Sessions("__Host-session", store))</code></pre>
+                        <h5 class="font-semibold">Login Endpoint (`/login`)</h5>
+                        <pre class="code-block"><code>func Login(c *gin.Context) {
+    // ... validate credentials ...
+    session := sessions.Default(c)
+    session.Set("userID", user.ID)
+    session.Save() // Stores in Redis, sends Set-Cookie header
+    c.JSON(http.StatusOK, gin.H{"message": "Logged in"})
+}</code></pre>
+                        <h5 class="font-semibold">Logout Endpoint (`/logout`)</h5>
+                        <pre class="code-block"><code>func Logout(c *gin.Context) {
+    session := sessions.Default(c)
+    session.Clear()
+    session.Options(sessions.Options{MaxAge: -1})
+    session.Save() // Deletes from Redis, sends expiring cookie
+    c.JSON(http.StatusOK, gin.H{"message": "Logged out"})
+}</code></pre>
+                    </div>
+                </div>
+
+                <div id="content-next" class="tab-content hidden">
+                    <h4 class="text-xl font-semibold text-slate-800 mb-4">Next.js BFF: Proxying & Route Protection</h4>
+                    <p class="text-slate-600 mb-4">The Next.js app acts as a secure proxy. Route Handlers forward
+                        requests to the Go API, and Edge Middleware protects routes by checking for the session cookie's
+                        presence.</p>
+                    <div class="space-y-4">
+                        <h5 class="font-semibold">Login Proxy Route Handler</h5>
+                        <pre class="code-block"><code>// app/api/auth/login/route.ts
+export async function POST(request: NextRequest) {
+    const apiResponse = await fetch(`${process.env.GO_API_URL}/login`, { ... });
+    
+    // Forward the Go API's response, including the Set-Cookie header
+    const response = new Response(apiResponse.body);
+    response.headers.set('Set-Cookie', apiResponse.headers.get('Set-Cookie'));
+    return response;
+}</code></pre>
+                        <h5 class="font-semibold">Edge Middleware for Route Protection</h5>
+                        <pre class="code-block"><code>// middleware.ts
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+
+export function middleware(request: NextRequest) {
+  const sessionCookie = request.cookies.get('__Host-session');
+  if (!sessionCookie) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: '/dashboard/:path*', // Protect all dashboard routes
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Operations Section -->
+        <section id="operations" class="scroll-mt-20">
+            <div class="section-card p-6 md:p-8">
+                <h3 class="text-2xl font-bold text-slate-900 mb-2">Operational Readiness</h3>
+                <p class="text-slate-600 mb-8">A secure architecture must also be scalable and resilient. This involves
+                    stateless application nodes, high-availability services, and a robust deployment process. Review the
+                    checklist for key deployment considerations.</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                        <h4 class="text-xl font-semibold text-slate-800 mb-4">Architecture for Scale</h4>
+                        <ul class="space-y-3 list-disc list-inside text-slate-600">
+                            <li><strong class="text-slate-700">Stateless Nodes:</strong> Both Next.js and Go nodes are
+                                stateless. Session data is externalized to Redis.</li>
+                            <li><strong class="text-slate-700">Load Balancing:</strong> A reverse proxy (e.g., Nginx)
+                                distributes traffic across multiple application nodes.</li>
+                            <li><strong class="text-slate-700">No Sticky Sessions:</strong> Because nodes are stateless,
+                                requests can be routed to any available server, simplifying infrastructure.</li>
+                            <li><strong class="text-slate-700">High-Availability Redis:</strong> Use Redis Sentinel for
+                                automatic failover or Redis Cluster for horizontal scaling.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="text-xl font-semibold text-slate-800 mb-4">Deployment Checklist</h4>
+                        <p class="text-slate-600 mb-4">Ensure these critical points are verified before going to
+                            production.</p>
+                        <div class="space-y-3">
+                            <label
+                                class="flex items-center p-3 bg-slate-50 rounded-md hover:bg-slate-100 transition cursor-pointer">
+                                <input type="checkbox"
+                                    class="h-5 w-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500">
+                                <span class="ml-3 text-slate-700">All secrets loaded from environment variables.</span>
+                            </label>
+                            <label
+                                class="flex items-center p-3 bg-slate-50 rounded-md hover:bg-slate-100 transition cursor-pointer">
+                                <input type="checkbox"
+                                    class="h-5 w-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500">
+                                <span class="ml-3 text-slate-700">Production cookie policy is enforced (`Secure`,
+                                    `HttpOnly`, `SameSite=Strict`).</span>
+                            </label>
+                            <label
+                                class="flex items-center p-3 bg-slate-50 rounded-md hover:bg-slate-100 transition cursor-pointer">
+                                <input type="checkbox"
+                                    class="h-5 w-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500">
+                                <span class="ml-3 text-slate-700">CSRF protection middleware is active on all
+                                    state-changing routes.</span>
+                            </label>
+                            <label
+                                class="flex items-center p-3 bg-slate-50 rounded-md hover:bg-slate-100 transition cursor-pointer">
+                                <input type="checkbox"
+                                    class="h-5 w-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500">
+                                <span class="ml-3 text-slate-700">HTTPS is enforced across the entire
+                                    application.</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal -->
+    <div id="arch-modal" class="modal-backdrop hidden">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modal-title" class="text-2xl font-bold"></h3>
+                <button id="modal-close" class="text-slate-500 hover:text-slate-800 text-2xl">&times;</button>
+            </div>
+            <div id="modal-body" class="text-slate-600 space-y-3"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const cookieData = {
+                production: [
+                    { attr: 'Name', val: '`__Host-session`' },
+                    { attr: 'HttpOnly', val: '`true`' },
+                    { attr: 'Secure', val: '`true`' },
+                    { attr: 'SameSite', val: '`Strict`' },
+                    { attr: 'Path', val: '`/`' },
+                    { attr: 'Domain', val: '`(Not set)`' },
+                ],
+                development: [
+                    { attr: 'Name', val: '`session-dev`' },
+                    { attr: 'HttpOnly', val: '`true`' },
+                    { attr: 'Secure', val: '`false`' },
+                    { attr: 'SameSite', val: '`Lax`' },
+                    { attr: 'Path', val: '`/`' },
+                    { attr: 'Domain', val: '`(Not set)`' },
+                ]
+            };
+
+            const envToggle = document.getElementById('env-toggle');
+            const cookieTableBody = document.getElementById('cookie-table-body');
+
+            function renderCookieTable(env) {
+                cookieTableBody.innerHTML = '';
+                cookieData[env].forEach(item => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="p-3 border-b border-slate-200 text-slate-800 font-medium">${item.attr}</td>
+                        <td class="p-3 border-b border-slate-200 text-slate-600">${item.val}</td>
+                    `;
+                    cookieTableBody.appendChild(row);
+                });
+            }
+
+            envToggle.addEventListener('change', (e) => {
+                renderCookieTable(e.target.checked ? 'production' : 'development');
+            });
+
+            renderCookieTable('production');
+
+            // Tabs
+            const tabButtons = document.querySelectorAll('.tab-button');
+            const tabContents = document.querySelectorAll('.tab-content');
+
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+
+                    const targetId = button.id.replace('tab-', 'content-');
+                    tabContents.forEach(content => {
+                        if (content.id === targetId) {
+                            content.classList.remove('hidden');
+                        } else {
+                            content.classList.add('hidden');
+                        }
+                    });
+                });
+            });
+
+            // Modal Logic
+            const modal = document.getElementById('arch-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalBody = document.getElementById('modal-body');
+            const closeModalBtn = document.getElementById('modal-close');
+            const archComponents = document.querySelectorAll('.arch-component');
+
+            const modalData = {
+                'arch-browser': {
+                    title: '💻 Browser',
+                    content: `
+                        <p>The browser is the user agent. Its primary responsibilities are:</p>
+                        <ul class="list-disc list-inside mt-2 space-y-1">
+                            <li>Initiating login by submitting credentials to the Next.js BFF.</li>
+                            <li>Securely storing the <strong>HttpOnly</strong> session cookie.</li>
+                            <li>Automatically including the cookie with every subsequent request to the BFF.</li>
+                            <li>Executing client-side JavaScript for UI updates and state management.</li>
+                        </ul>
+                    `
+                },
+                'arch-bff': {
+                    title: '🚀 Next.js BFF',
+                    content: `
+                        <p>The Next.js application serves as a secure Backend-for-Frontend. Its responsibilities include:</p>
+                        <ul class="list-disc list-inside mt-2 space-y-1">
+                            <li><strong>Route Protection:</strong> Using Edge Middleware to check for a session cookie and redirect unauthenticated users.</li>
+                            <li><strong>API Proxying:</strong> Using Route Handlers to securely proxy requests from the browser to the internal Go API.</li>
+                            <li><strong>Cookie Forwarding:</strong> Receiving the <code>Set-Cookie</code> header from the Go API and forwarding it to the browser.</li>
+                            <li>Serving the user interface and managing client-side state.</li>
+                        </ul>
+                    `
+                },
+                'arch-go': {
+                    title: '⚙️ Go API',
+                    content: `
+                        <p>The Go API is the ultimate authority on authentication and session management. Its duties are:</p>
+                        <ul class="list-disc list-inside mt-2 space-y-1">
+                            <li>Validating user credentials against a database.</li>
+                            <li>Generating high-entropy, unpredictable session identifiers.</li>
+                            <li>Creating session data and persisting it in the Redis store.</li>
+                            <li>Generating the secure <code>Set-Cookie</code> header in its response to the BFF.</li>
+                            <li>Validating session IDs from incoming requests by looking them up in Redis.</li>
+                            <li>Deleting sessions from Redis upon logout.</li>
+                        </ul>
+                    `
+                },
+                'arch-redis': {
+                    title: '💾 Redis',
+                    content: `
+                        <p>Redis is the high-performance, in-memory data store for all session data. Its role is to:</p>
+                        <ul class="list-disc list-inside mt-2 space-y-1">
+                            <li>Provide a centralized, scalable location for session state.</li>
+                            <li>Enable stateless application nodes (Next.js and Go) that can be scaled horizontally.</li>
+                            <li>Offer fast read/write access to session data, ensuring low latency.</li>
+                            <li>Manage session expiration with a Time-To-Live (TTL) on each session key.</li>
+                        </ul>
+                        <p class="mt-2">In production, this should be a high-availability setup like <strong>Redis Sentinel</strong> or <strong>Redis Cluster</strong>.</p>
+                    `
+                }
+            };
+
+            function openModal(id) {
+                const data = modalData[id];
+                if (data) {
+                    modalTitle.textContent = data.title;
+                    modalBody.innerHTML = data.content;
+                    modal.classList.remove('hidden');
+                }
+            }
+
+            function closeModal() {
+                modal.classList.add('hidden');
+            }
+
+            archComponents.forEach(component => {
+                component.addEventListener('click', () => openModal(component.id));
+            });
+
+            closeModalBtn.addEventListener('click', closeModal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    closeModal();
+                }
+            });
+
+            // Active Nav Scrolling
+            const sections = document.querySelectorAll('section');
+            const navLinks = document.querySelectorAll('.nav-link');
+
+            window.addEventListener('scroll', () => {
+                let current = '';
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop;
+                    if (pageYOffset >= sectionTop - 80) {
+                        current = section.getAttribute('id');
+                    }
+                });
+
+                navLinks.forEach(link => {
+                    link.classList.remove('active-nav');
+                    if (link.getAttribute('href').includes(current)) {
+                        link.classList.add('active-nav');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>
